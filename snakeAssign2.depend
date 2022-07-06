@@ -1,0 +1,40 @@
+# depslib dependency file v1.0
+1657077376 source:f:\study\c++summersemester\snackassign2\snakeassign2\game.cpp
+	<string>
+	<iostream>
+	<cmath>
+	<ctime>
+	<chrono>
+	<thread>
+	<fstream>
+	<algorithm>
+	"curses.h"
+	"game.h"
+
+1655723618 f:\study\c++summersemester\snackassign2\snakeassign2\curses.h
+	<stdarg.h>
+	<stddef.h>
+	<stdio.h>
+	<wchar.h>
+	<stdbool.h>
+
+1657089580 f:\study\c++summersemester\snackassign2\snakeassign2\game.h
+	"curses.h"
+	<string>
+	<vector>
+	<memory>
+	"snake.h"
+
+1656896008 f:\study\c++summersemester\snackassign2\snakeassign2\snake.h
+	<vector>
+
+1655910580 source:f:\study\c++summersemester\snackassign2\snakeassign2\main.cpp
+	"game.h"
+
+1657073078 source:f:\study\c++summersemester\snackassign2\snakeassign2\snake.cpp
+	<string>
+	<cstdlib>
+	<ctime>
+	<iostream>
+	"snake.h"
+
