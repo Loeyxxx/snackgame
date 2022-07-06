@@ -318,14 +318,25 @@ void Game::createRamdonFood()
  * create a food at random places
  * make sure that the food doesn't overlap with the snake.
  */
-    srand((int)time(NULL));
-    int food_x,food_y;
-    do{
-        food_x=rand() % (this->mGameBoardWidth-4);
-        food_y=rand() % (this->mGameBoardHeight-4);
+    std::vector<SnakeBody> availableGrids;
+    for (int i = 1; i < this->mGameBoardHeight - 1; i ++)
+    {
+        for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
+        {
+            if(this->mPtrSnake->isPartOfSnake(j, i))
+            {
+                continue;
+            }
+            else
+            {
+                availableGrids.push_back(SnakeBody(j, i));
+            }
+        }
     }
-    while(isOverlap(food_x,food_y));
-    this->mFood = SnakeBody(food_x,food_y);
+
+    // Randomly select a grid that is not occupied by the snake
+    int random_idx = std::rand() % availableGrids.size();
+    this->mFood = availableGrids[random_idx];
 }
 
 void Game::renderFood() const

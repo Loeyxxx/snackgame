@@ -84,9 +84,9 @@ bool Snake::isPartOfSnake(int x, int y)
 bool Snake::hitWall()
 {
 		// TODO check if the snake has hit the wall
-    if(this->mSnake[0].getX() == 0 || this->mSnake[0].getX() == mGameBoardWidth-1)
+    if(this->mSnake[0].getX() <= 0 || this->mSnake[0].getX() >= mGameBoardWidth-1)
         return true;
-    if(this->mSnake[0].getY() == 0 || this->mSnake[0].getY() == mGameBoardHeight-1)
+    if(this->mSnake[0].getY() <= 0 || this->mSnake[0].getY() >= mGameBoardHeight-1)
         return true;
 
 

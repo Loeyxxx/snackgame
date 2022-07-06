@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1657077376 source:f:\study\c++summersemester\snackassign2\snakeassign2\game.cpp
+1657089590 source:f:\study\c++summersemester\snackassign2\snakeassign2\game.cpp
 	<string>
 	<iostream>
 	<cmath>
@@ -31,7 +31,7 @@
 1655910580 source:f:\study\c++summersemester\snackassign2\snakeassign2\main.cpp
 	"game.h"
 
-1657073078 source:f:\study\c++summersemester\snackassign2\snakeassign2\snake.cpp
+1657106682 source:f:\study\c++summersemester\snackassign2\snakeassign2\snake.cpp
 	<string>
 	<cstdlib>
 	<ctime>
