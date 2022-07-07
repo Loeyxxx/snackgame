@@ -77,6 +77,12 @@ bool Snake::isPartOfSnake(int x, int y)
     return false;
 }
 
+/*Snake Length-1
+*/
+void Snake::minusSnake()
+{
+    this->mSnake.pop_back();
+}
 /*
  * Assumption:
  * Only the head would hit wall.
@@ -132,6 +138,46 @@ void Snake::senseFood(SnakeBody food)
 {
     this->mFood = food;
 }
+
+//Poison Item
+void Snake::sensePoison(std::vector<SnakeBody> poison)
+{
+    this->mPoison = poison;
+}
+
+bool Snake::touchPoison()
+{
+    SnakeBody Head = this->mSnake[0];
+    for(SnakeBody Poison : this->mPoison)
+    {
+        if(Head == Poison)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+//END
+
+//Passage Item
+void Snake::sensePassage(std::vector<SnakeBody> passage)
+{
+    this->mPassgae = passage;
+}
+
+bool Snake::throughPassage()
+{
+    for(SnakeBody Passage : this->mPassgae)
+    {
+        if(!this->isPartOfSnake(Passage.getX(),Passage.getY()))
+            return false;
+    }
+    return true;
+}
+
+//SnakeBody Snake::
+
 
 std::vector<SnakeBody>& Snake::getSnake()
 {
@@ -282,4 +328,11 @@ int Snake::getLength()
 Direction Snake::getDirection()
 {
     return this->mDirection;
+}
+
+bool Snake::isTooSmall()
+{
+    if(this->mSnake.size() < 1)
+        return true;
+    return false;
 }

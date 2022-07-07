@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1657089590 source:f:\study\c++summersemester\snackassign2\snakeassign2\game.cpp
+1657184610 source:f:\study\c++summersemester\snackassign2\snakeassign2\game.cpp
 	<string>
 	<iostream>
 	<cmath>
@@ -10,6 +10,7 @@
 	<algorithm>
 	"curses.h"
 	"game.h"
+	"Timer.h"
 
 1655723618 f:\study\c++summersemester\snackassign2\snakeassign2\curses.h
 	<stdarg.h>
@@ -18,23 +19,32 @@
 	<wchar.h>
 	<stdbool.h>
 
-1657089580 f:\study\c++summersemester\snackassign2\snakeassign2\game.h
+1657182950 f:\study\c++summersemester\snackassign2\snakeassign2\game.h
 	"curses.h"
 	<string>
 	<vector>
 	<memory>
 	"snake.h"
+	"Timer.h"
 
-1656896008 f:\study\c++summersemester\snackassign2\snakeassign2\snake.h
+1657203765 f:\study\c++summersemester\snackassign2\snakeassign2\snake.h
 	<vector>
 
 1655910580 source:f:\study\c++summersemester\snackassign2\snakeassign2\main.cpp
 	"game.h"
 
-1657106682 source:f:\study\c++summersemester\snackassign2\snakeassign2\snake.cpp
+1657203781 source:f:\study\c++summersemester\snackassign2\snakeassign2\snake.cpp
 	<string>
 	<cstdlib>
 	<ctime>
 	<iostream>
 	"snake.h"
+
+1657178993 source:f:\study\c++summersemester\snackassign2\snakeassign2\timer.cpp
+	<time.h>
+	<math.h>
+	"Timer.h"
+	<iostream>
+
+1657178602 f:\study\c++summersemester\snackassign2\snakeassign2\timer.h
 

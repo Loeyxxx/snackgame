@@ -43,6 +43,19 @@ public:
     bool hitSelf();
     bool checkCollision();
 
+    //Poison information
+    void sensePoison(std::vector<SnakeBody> poison);
+    bool touchPoison();
+    void minusSnake();
+    bool isTooSmall();
+    //END
+
+    //Passage information
+    void sensePassage(std::vector<SnakeBody> passage);
+    bool throughPassage();
+    SnakeBody getHead();
+
+
     bool changeDirection(Direction newDirection);
     std::vector<SnakeBody>& getSnake();
     int getLength();
@@ -58,7 +71,9 @@ private:
     const int mInitialSnakeLength;
     Direction mDirection;
     SnakeBody mFood;
+    std::vector<SnakeBody> mPoison;
     std::vector<SnakeBody> mSnake;
+    std::vector<SnakeBody> mPassgae;
 };
 
 #endif

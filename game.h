@@ -6,7 +6,11 @@
 #include <vector>
 #include <memory>
 
+
 #include "snake.h"
+#include "Timer.h""
+
+
 
 
 class Game
@@ -34,7 +38,6 @@ public:
 		void renderBoards() const;
 
 		void initializeGame();
-    bool isOverlap(int food_x, int food_y) const;
     void runGame();
     void renderPoints() const;
     void renderDifficulty() const;
@@ -48,6 +51,16 @@ public:
     bool renderRestartMenu() const;
     bool renderPauseMenu() const;
     void adjustDelay();
+
+    //New Here
+    void createRamdonPoison();
+    void renderPoison() const;
+    void appearPoison();
+    //New here for Passage
+    void createRamdonPassage();
+    SnakeBody createNextDot(SnakeBody Dot);
+    void renderPassage() const;
+    void appearPassage();
 
 
 private:
@@ -69,8 +82,14 @@ private:
     SnakeBody mFood;
     const char mFoodSymbol = '#';
     //Poison information
-    SnakeBody mPoison;
+    std::vector<SnakeBody> mPoison;
     const char mPoisonSymbol = 'X';
+    int PoisonLevel;
+
+    //Passage information
+    std::vector<SnakeBody> mPassage;
+    const char mPassageSymbol = '*';
+
     int mPoints = 0;
     int mDifficulty = 0;
     int mBaseDelay = 100;

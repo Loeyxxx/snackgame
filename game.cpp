@@ -7,11 +7,16 @@
 #include <chrono>
 #include <thread>
 
+
 #include <fstream>
 #include <algorithm>
 
 #include "curses.h"
 #include "game.h"
+#include "Timer.h""
+
+
+
 
 Game::Game()
 {
@@ -288,7 +293,6 @@ void Game::initializeGame()
     // allocate memory for a new snake
 		this->mPtrSnake.reset(new Snake(this->mGameBoardWidth, this->mGameBoardHeight, this->mInitialSnakeLength));
 
-
     /* TODO
      * initialize the game points as zero
      * create a food at random place
@@ -301,17 +305,16 @@ void Game::initializeGame()
      this->mPtrSnake->senseFood(this->mFood);
      this->mDelay = this->mBaseDelay;
 
+     //new
+     this->PoisonLevel = 1;
+     this->appearPoison();
+
+     //Passage New
+     this->appearPassage();
+
 }
 
-bool Game::isOverlap(int food_x, int food_y) const
-{
-    SnakeBody newFood = SnakeBody(food_x,food_y);
-   for(SnakeBody body : this->mPtrSnake->getSnake())
-   {
-       if(body == newFood) return true;
-   }
-   return false;
-}
+
 void Game::createRamdonFood()
 {
 /* TODO
@@ -345,10 +348,121 @@ void Game::renderFood() const
     wrefresh(this->mWindows[1]);
 }
 
-/*void Game::createRamdonPoison()
+//Poison States
+void Game::createRamdonPoison()
 {
+    std::vector<SnakeBody>().swap(this->mPoison);
+    std::vector<SnakeBody> availableGrids;
+    for (int i = 1; i < this->mGameBoardHeight - 1; i ++)
+    {
+        for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
+        {
+            if(this->mPtrSnake->isPartOfSnake(j, i))
+            {
+                continue;
+            }
+            else
+            {
+                availableGrids.push_back(SnakeBody(j, i));
+            }
+        }
+    }
 
-}*/
+    for (int i=0;i<PoisonLevel;i++)
+    {
+        int random_idx = std::rand() % availableGrids.size();
+        this->mPoison.push_back(availableGrids[random_idx]);
+    }
+}
+
+void Game::renderPoison() const
+{
+    for(SnakeBody Poison : this->mPoison)
+    {
+        mvwaddch(this->mWindows[1],Poison.getY(), Poison.getX(), this->mPoisonSymbol);
+    }
+    wrefresh(this->mWindows[1]);
+}
+
+void Game::appearPoison()
+{
+    this->createRamdonPoison();
+    this->mPtrSnake->sensePoison(this->mPoison);
+    this->renderPoison();
+}
+//Poison Over
+
+//Passage States
+SnakeBody Game::createNextDot(SnakeBody Dot)
+{
+    int random_idx = std::rand() % 4;
+    switch(random_idx)
+    {
+    case 0:
+        {
+            return SnakeBody(Dot.getX()-1, Dot.getY());
+        }
+    case 1:
+        {
+            return SnakeBody(Dot.getX()+1, Dot.getY());
+        }
+    case 2:
+        {
+            return SnakeBody(Dot.getX(), Dot.getY()-1);
+        }
+    case 3:
+        {
+            return SnakeBody(Dot.getX(), Dot.getY()+1);
+        }
+    }
+}
+
+void Game::createRamdonPassage()
+{
+    std::vector<SnakeBody>().swap(this->mPassage);
+    std::vector<SnakeBody> availableGrids;
+    for (int i = 1; i < this->mGameBoardHeight - 1; i ++)
+    {
+        for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
+        {
+            if(this->mPtrSnake->isPartOfSnake(j, i))
+            {
+                continue;
+            }
+            else
+            {
+                availableGrids.push_back(SnakeBody(j, i));
+            }
+        }
+    }
+    int random_idx = std::rand() % availableGrids.size();
+    this->mPassage.push_back(availableGrids[random_idx]);
+    for (int i=0;i < std::rand() % 10 && i < this->mPtrSnake->getLength(); i++)
+    {
+        this->mPassage.push_back(this->createNextDot(this->mPassage.back()));
+
+    }
+
+}
+
+void Game::renderPassage() const
+{
+    for(SnakeBody Passage : this->mPassage)
+    {
+        if(!this->mPtrSnake->isPartOfSnake(Passage.getX(),Passage.getY()))
+            mvwaddch(this->mWindows[1],Passage.getY(), Passage.getX(), this->mPassageSymbol);
+    }
+    wrefresh(this->mWindows[1]);
+}
+
+void Game::appearPassage()
+{
+    this->createRamdonPassage();
+    this->mPtrSnake->sensePassage(this->mPassage);
+    this->renderPassage();
+}
+
+//Passage End
 
 void Game::renderSnake() const
 {
@@ -416,10 +530,6 @@ void Game::controlSnake() const
             {
                 exit(0);
             }
-            /*while(getch() != ' ')
-            {
-
-            }*/
         }
         default:
         {
@@ -453,12 +563,19 @@ void Game::adjustDelay()
     {
         this->mDelay = this->mBaseDelay * pow(0.75, this->mDifficulty);
     }
+
 }
+
 
 void Game::runGame()
 {
     bool moveSuccess;
     int key;
+    //time information
+    Timer playTimer;
+    time_t playBeforeTick,playNowTick;
+    playTimer.startTimer();
+
     while (true)
     {
 				/* TODO
@@ -472,8 +589,24 @@ void Game::runGame()
 				 * 	6. make corresponding steps for the ``if conditions'' in 3 and 4.
 				 *   7. render the position of the food and snake in the new frame of window.
 				 *   8. update other game states and refresh the window
-				 */
+                 */
+        //New Here
+        playTimer.updateTime();
+        playNowTick = playTimer.getTick();
+        //New Passage
+        if(playNowTick != playBeforeTick && playNowTick % 47 == 0 && std::rand() % 3 == 0)
+        {
+            this->appearPassage();
+        }
+        int passageLength = int(this->mPassage.size());
+        //if()
 
+        //
+        if(playNowTick != playBeforeTick && playNowTick % 5 == 0)
+        {
+            this->appearPoison();
+        }
+        //↑
         this->controlSnake();
         werase(this->mWindows[1]);
         box(this->mWindows[1],0,0);
@@ -483,6 +616,28 @@ void Game::runGame()
         {
             break;
         }
+        //New Here
+        if(this->mPtrSnake->touchPoison()== true)
+        {
+            this->mPtrSnake->minusSnake();
+            this->mPoints--;
+            if(this->mPtrSnake->isTooSmall())
+            {
+                break;
+            }
+            this->appearPoison();
+        }
+
+        //¡ü
+
+        //New Passage
+        if(this->mPtrSnake->throughPassage())
+        {
+            this->mPoints+=5;
+            std::vector<SnakeBody>().swap(this->mPassage);
+        }
+
+        //END
         this->renderSnake();
         if(eatFood == true)
         {
@@ -494,16 +649,17 @@ void Game::runGame()
         this->renderFood();
         this->renderDifficulty();
         this->renderPoints();
+        this->renderPoison();
+        this->renderPassage();
 
 
 
 
 
 
-
-
+        playTimer.updateTime();
+        playBeforeTick = playTimer.getTick();
 				std::this_thread::sleep_for(std::chrono::milliseconds(this->mDelay));
-
         refresh();
     }
 }
