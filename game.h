@@ -42,7 +42,7 @@ public:
     void renderPoints() const;
     void renderDifficulty() const;
 
-		void createRamdonFood();
+		void createRandomFood();
     void renderFood() const;
     void renderSnake() const;
     void controlSnake() const;
@@ -52,15 +52,36 @@ public:
     bool renderPauseMenu() const;
     void adjustDelay();
 
-    //New Here
-    void createRamdonPoison();
+    //New Here for Poison
+    void createRandomPoison();
     void renderPoison() const;
     void appearPoison();
+    bool isPartOfPoison(SnakeBody Head);
     //New here for Passage
-    void createRamdonPassage();
-    SnakeBody createNextDot(SnakeBody Dot);
+    void createRandomPassage();
+    void createNextDoubleDot(SnakeBody Dot, std::vector<SnakeBody>& lines);
+    void createNextDot(SnakeBody Dot, std::vector<SnakeBody>& lines);
     void renderPassage() const;
     void appearPassage();
+    bool isPartOfPassage(SnakeBody Head);
+    bool is_inVector(std::vector<SnakeBody> walkThrough, SnakeBody Position);
+    bool isValidDot(SnakeBody Dot);
+
+    void createNextLine(std::vector<SnakeBody>& lines);
+    void createTurningDot(std::vector<SnakeBody>& lines);
+    int judgeDirection(std::vector<SnakeBody> lines);
+    //New here for Life
+    void renderLife() const;
+    void RestartGame();
+    bool isDie();
+    int AccumulatePoints() const;
+
+    //New here for Blood
+    void createRandomBloodPassage();
+    void renderBloodPassage() const;
+    void appearBloodPassage();
+    bool isPartOfBloodPassage(SnakeBody Head);
+
 
 
 private:
@@ -90,13 +111,20 @@ private:
     std::vector<SnakeBody> mPassage;
     const char mPassageSymbol = '*';
 
-    int mPoints = 0;
+
+
+    std::vector<int> mPoints;
     int mDifficulty = 0;
     int mBaseDelay = 100;
     int mDelay;
     const std::string mRecordBoardFilePath = "record.dat";
     std::vector<int> mLeaderBoard;
     const int mNumLeaders = 3;
+    //Life information
+    int mSnakeLife = 3;
+    const char mBloodSymbol = '&';
+    const char mBloodPassageSymbol = 'O';
+    std::vector<SnakeBody> mBloodPassage;
 };
 
 #endif

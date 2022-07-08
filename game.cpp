@@ -15,7 +15,8 @@
 #include "game.h"
 #include "Timer.h""
 
-
+#include "winuser.h"
+#define isKeyPressed(nVirtKey) (GetKeyState(nVirtKey) & (1<<(sizeof(SHORT)*8-1))) != 0
 
 
 Game::Game()
@@ -100,6 +101,7 @@ void Game::renderInstructionBoard() const
 
     mvwprintw(this->mWindows[2], 8, 1, "Difficulty");
     mvwprintw(this->mWindows[2], 11, 1, "Points");
+    mvwprintw(this->mWindows[2], 14, 1, "Lifes");
 
     wrefresh(this->mWindows[2]);
 }
@@ -112,15 +114,15 @@ void Game::renderLeaderBoard() const
     {
         return;
     }
-    mvwprintw(this->mWindows[2], 14, 1, "Leader Board");
+    mvwprintw(this->mWindows[2], 17, 1, "Leader Board");
     std::string pointString;
     std::string rank;
     for (int i = 0; i < std::min(this->mNumLeaders, this->mScreenHeight - this->mInformationHeight - 14 - 2); i ++)
     {
         pointString = std::to_string(this->mLeaderBoard[i]);
         rank = "#" + std::to_string(i + 1) + ":";
-        mvwprintw(this->mWindows[2], 14 + (i + 1), 1, rank.c_str());
-        mvwprintw(this->mWindows[2], 14 + (i + 1), 5, pointString.c_str());
+        mvwprintw(this->mWindows[2], 17 + (i + 1), 1, rank.c_str());
+        mvwprintw(this->mWindows[2], 17 + (i + 1), 5, pointString.c_str());
     }
     wrefresh(this->mWindows[2]);
 }
@@ -140,7 +142,7 @@ bool Game::renderRestartMenu() const
     int index = 0;
     int offset = 4;
     mvwprintw(menu, 1, 1, "Your Final Score:");
-    std::string pointString = std::to_string(this->mPoints);
+    std::string pointString = std::to_string(this->AccumulatePoints());
     mvwprintw(menu, 2, 1, pointString.c_str());
     wattron(menu, A_STANDOUT);
     mvwprintw(menu, 0 + offset, 1, menuItems[0].c_str());
@@ -215,7 +217,7 @@ bool Game::renderPauseMenu() const
     int index = 0;
     int offset = 4;
     mvwprintw(menu, 1, 1, "Your Score:");
-    std::string pointString = std::to_string(this->mPoints);
+    std::string pointString = std::to_string(this->AccumulatePoints());
     mvwprintw(menu, 2, 1, pointString.c_str());
     wattron(menu, A_STANDOUT);
     mvwprintw(menu, 0 + offset, 1, menuItems[0].c_str());
@@ -276,7 +278,7 @@ bool Game::renderPauseMenu() const
 
 void Game::renderPoints() const
 {
-    std::string pointString = std::to_string(this->mPoints);
+    std::string pointString = std::to_string(this->mPoints.back());
     mvwprintw(this->mWindows[2], 12, 1, pointString.c_str());
     wrefresh(this->mWindows[2]);
 }
@@ -299,9 +301,10 @@ void Game::initializeGame()
      * make the snake aware of the food
      * other initializations
      */
-     this->mPoints = 0;
+     this->mSnakeLife = 3;
+     this->mPoints.push_back(0);
      this->mDifficulty = 0;
-     this->createRamdonFood();
+     this->createRandomFood();
      this->mPtrSnake->senseFood(this->mFood);
      this->mDelay = this->mBaseDelay;
 
@@ -309,13 +312,11 @@ void Game::initializeGame()
      this->PoisonLevel = 1;
      this->appearPoison();
 
-     //Passage New
-     this->appearPassage();
 
 }
 
 
-void Game::createRamdonFood()
+void Game::createRandomFood()
 {
 /* TODO
  * create a food at random places
@@ -326,7 +327,7 @@ void Game::createRamdonFood()
     {
         for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
         {
-            if(this->mPtrSnake->isPartOfSnake(j, i))
+            if(!isValidDot(SnakeBody(j,i)))
             {
                 continue;
             }
@@ -349,7 +350,7 @@ void Game::renderFood() const
 }
 
 //Poison States
-void Game::createRamdonPoison()
+void Game::createRandomPoison()
 {
     std::vector<SnakeBody>().swap(this->mPoison);
     std::vector<SnakeBody> availableGrids;
@@ -357,7 +358,7 @@ void Game::createRamdonPoison()
     {
         for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
         {
-            if(this->mPtrSnake->isPartOfSnake(j, i))
+            if(!isValidDot(SnakeBody(j,i)))
             {
                 continue;
             }
@@ -386,38 +387,266 @@ void Game::renderPoison() const
 
 void Game::appearPoison()
 {
-    this->createRamdonPoison();
+    this->createRandomPoison();
     this->mPtrSnake->sensePoison(this->mPoison);
     this->renderPoison();
 }
-//Poison Over
+bool Game::isPartOfPoison(SnakeBody Head)
+{
+    for(SnakeBody Poison: this->mPoison)
+    {
+        if(Head == Poison)
+            return true;
+    }
+    return false;
+}
+//Poison END
 
 //Passage States
-SnakeBody Game::createNextDot(SnakeBody Dot)
+bool Game::isValidDot(SnakeBody Dot)
+{
+    if(isPartOfPassage(Dot))
+        return false;
+    if(isPartOfPoison(Dot))
+        return false;
+    if(isPartOfBloodPassage(Dot))
+        return false;
+    int DotX=Dot.getX(),DotY=Dot.getY();
+    if(this->mPtrSnake->isPartOfSnake(DotX, DotY))
+        return false;
+    if (DotX < 1 || DotX >= this->mGameBoardHeight - 1 || DotY < 1 || DotY >= this->mGameBoardWidth -1)
+        return false;
+    return true;
+}
+
+void Game::createNextDoubleDot(SnakeBody Dot, std::vector<SnakeBody>& lines)
+{
+        int random_idx = std::rand() % 4;
+        switch(random_idx)
+        {
+        case 0:
+            {
+                if(isValidDot(SnakeBody(Dot.getX()-1, Dot.getY())) && isValidDot(SnakeBody(Dot.getX()-2, Dot.getY())))
+                {
+                    lines.push_back(SnakeBody(Dot.getX()-1, Dot.getY()));
+                    lines.push_back(SnakeBody(Dot.getX()-2, Dot.getY()));
+                    break;
+                }
+                break;
+
+            }
+        case 1:
+            {
+                if(isValidDot(SnakeBody(Dot.getX()+1, Dot.getY())) && isValidDot(SnakeBody(Dot.getX()+2, Dot.getY())))
+                {
+                    lines.push_back(SnakeBody(Dot.getX()+1, Dot.getY()));
+                    lines.push_back(SnakeBody(Dot.getX()+2, Dot.getY()));
+                    break;
+                }
+                break;
+            }
+        case 2:
+            {
+                if(isValidDot(SnakeBody(Dot.getX(), Dot.getY()-1)) && isValidDot(SnakeBody(Dot.getX(), Dot.getY()-2)))
+                {
+                    lines.push_back(SnakeBody(Dot.getX(), Dot.getY()-1));
+                    lines.push_back(SnakeBody(Dot.getX(), Dot.getY()-2));
+                    break;
+                }
+                break;
+            }
+        case 3:
+            {
+                if(isValidDot(SnakeBody(Dot.getX(), Dot.getY()+1)) && isValidDot(SnakeBody(Dot.getX(), Dot.getY()+2)))
+                {
+                    lines.push_back(SnakeBody(Dot.getX(), Dot.getY()+1));
+                    lines.push_back(SnakeBody(Dot.getX(), Dot.getY()+2));
+                    break;
+                }
+                break;
+            }
+        }
+
+}
+
+void Game::createNextDot(SnakeBody Dot , std::vector<SnakeBody>& lines)
 {
     int random_idx = std::rand() % 4;
-    switch(random_idx)
-    {
-    case 0:
+        switch(random_idx)
         {
-            return SnakeBody(Dot.getX()-1, Dot.getY());
+        case 0:
+            {
+                if(isValidDot(SnakeBody(Dot.getX()-1, Dot.getY())))
+                {
+                    lines.push_back(SnakeBody(Dot.getX()-1, Dot.getY()));
+                }
+                break;
+
+            }
+        case 1:
+            {
+                if(isValidDot(SnakeBody(Dot.getX()+1, Dot.getY())))
+                {
+                    lines.push_back(SnakeBody(Dot.getX()+1, Dot.getY()));
+                }
+                break;
+            }
+        case 2:
+            {
+                if(isValidDot(SnakeBody(Dot.getX(), Dot.getY()-1)))
+                {
+                    lines.push_back(SnakeBody(Dot.getX(), Dot.getY()-1));
+                }
+                break;
+            }
+        case 3:
+            {
+                if(isValidDot(SnakeBody(Dot.getX(), Dot.getY()+1)))
+                {
+                    lines.push_back(SnakeBody(Dot.getX(), Dot.getY()+1));
+                }
+                break;
+            }
         }
+}
+
+int Game::judgeDirection(std::vector<SnakeBody> lines)
+{
+    if(lines.size() <= 1)
+        return (std::rand() % 4) +1;
+    //获得最后两个点
+    SnakeBody LastDot = lines.back();
+    SnakeBody Last2ndDot = lines.at(lines.size()-2);
+    //为横线 左边没有点  返回1
+    if(LastDot.getY() == Last2ndDot.getY() && LastDot.getX() < Last2ndDot.getX())
+        return 1;
+    //为横线 右边没有点 返回2
+    if(LastDot.getY() == Last2ndDot.getY() && LastDot.getX() > Last2ndDot.getX())
+        return 2;
+    //为竖线 上边没有点 返回3
+    if(LastDot.getX() == Last2ndDot.getX() && LastDot.getY() < Last2ndDot.getY())
+        return 3;
+    //为竖线 下边没有点 返回4
+    if(LastDot.getX() == Last2ndDot.getX() && LastDot.getY() > Last2ndDot.getY())
+        return 4;
+}
+
+void Game::createNextLine(std::vector<SnakeBody>& lines)
+{
+    SnakeBody Dot = lines.back();
+    int Ndirection = judgeDirection(lines);
+    switch(Ndirection)
+    {
     case 1:
         {
-            return SnakeBody(Dot.getX()+1, Dot.getY());
+            for(int i=1; i< (std::rand() % 5 )+3;i++)
+            {
+                if(isValidDot(SnakeBody(Dot.getX()-i, Dot.getY())))
+                {
+                lines.push_back(SnakeBody(Dot.getX()-i, Dot.getY()));
+                }
+                else break;
+            }
+            break;
         }
     case 2:
         {
-            return SnakeBody(Dot.getX(), Dot.getY()-1);
+                for(int i=1; i<(std::rand() % 5 )+3;i++)
+                {
+                    if(isValidDot(SnakeBody(Dot.getX()+i, Dot.getY())))
+                    {
+                    lines.push_back(SnakeBody(Dot.getX()+i, Dot.getY()));
+                    }
+                    else break;
+                }
+                break;
         }
     case 3:
         {
-            return SnakeBody(Dot.getX(), Dot.getY()+1);
+            for(int i=1; i<(std::rand() % 5 )+3;i++)
+                {
+                    if(isValidDot(SnakeBody(Dot.getX(), Dot.getY()-i)))
+                    {
+                    lines.push_back(SnakeBody(Dot.getX(), Dot.getY()-i));
+                    }
+                    else break;
+                }
+            break;
+        }
+    case 4:
+        {
+            for(int i=1; i<(std::rand() % 5 )+3;i++)
+                {
+                    if(isValidDot(SnakeBody(Dot.getX(), Dot.getY()+i)))
+                    {
+                    lines.push_back(SnakeBody(Dot.getX(), Dot.getY()+i));
+                    }
+                    else break;
+                }
+            break;
+        }
+
+    }
+}
+
+void Game::createTurningDot(std::vector<SnakeBody>& lines)
+{
+    SnakeBody LastDot = lines.back();
+    int nDirection = judgeDirection(lines);
+    if(nDirection == 1 || nDirection == 2)
+    {
+        int random_idx = std::rand() % 2;
+        switch(random_idx)
+        {
+            case 0:
+            {
+                if(isValidDot(SnakeBody(LastDot.getX(),LastDot.getY()-1)))
+                {
+                    lines.push_back(SnakeBody(LastDot.getX(),LastDot.getY()-1));
+                    break;
+                }
+                break;
+            }
+            case 1:
+            {
+                if(isValidDot(SnakeBody(LastDot.getX(),LastDot.getY()+1)))
+                {
+                    lines.push_back(SnakeBody(LastDot.getX(),LastDot.getY()+1));
+                    break;
+                }
+                break;
+            }
+        }
+    }
+    if(nDirection == 3 || nDirection == 4)
+    {
+        int random_idx = std::rand() % 2;
+        switch(random_idx)
+        {
+            case 0:
+            {
+                if(isValidDot(SnakeBody(LastDot.getX()-1,LastDot.getY())))
+                {
+                    lines.push_back(SnakeBody(LastDot.getX()-1,LastDot.getY()));
+                    break;
+                }
+                break;
+            }
+            case 1:
+            {
+                if(isValidDot(SnakeBody(LastDot.getX()+1,LastDot.getY())))
+                {
+                    lines.push_back(SnakeBody(LastDot.getX()+1,LastDot.getY()));
+                    break;
+                }
+                break;
+            }
         }
     }
 }
 
-void Game::createRamdonPassage()
+
+/*void Game::createHardPassage()
 {
     std::vector<SnakeBody>().swap(this->mPassage);
     std::vector<SnakeBody> availableGrids;
@@ -437,11 +666,43 @@ void Game::createRamdonPassage()
     }
     int random_idx = std::rand() % availableGrids.size();
     this->mPassage.push_back(availableGrids[random_idx]);
-    for (int i=0;i < std::rand() % 10 && i < this->mPtrSnake->getLength(); i++)
+    for (int i=0;i < 10 ; i++)
     {
-        this->mPassage.push_back(this->createNextDot(this->mPassage.back()));
+        this->createNextDoubleDot(this->mPassage.back());
+    }
+    if(this->mPassage.size() < 2 )
+        std::vector<SnakeBody>().swap(this->mPassage);
+}
+*/
+
+void Game::createRandomPassage()
+{
+    std::vector<SnakeBody>().swap(this->mPassage);
+    std::vector<SnakeBody> availableGrids;
+    for (int i = 1; i < this->mGameBoardHeight - 1; i ++)
+    {
+        for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
+        {
+            if(!isValidDot(SnakeBody(j,i)))
+            {
+                continue;
+            }
+            else
+            {
+                availableGrids.push_back(SnakeBody(j, i));
+            }
+        }
+    }
+    int random_idx = std::rand() % availableGrids.size();
+    this->mPassage.push_back(availableGrids[random_idx]);
+    for (int i=0;i < (std::rand() %5) +2 ; i++)
+    {
+        this->createNextLine(this->mPassage);
+        this->createTurningDot(this->mPassage);
 
     }
+    if(this->mPassage.size() < 3 )
+        std::vector<SnakeBody>().swap(this->mPassage);
 
 }
 
@@ -457,12 +718,95 @@ void Game::renderPassage() const
 
 void Game::appearPassage()
 {
-    this->createRamdonPassage();
+    this->createRandomPassage();
     this->mPtrSnake->sensePassage(this->mPassage);
     this->renderPassage();
 }
 
-//Passage End
+bool Game::isPartOfPassage(SnakeBody Head)
+{
+    for(SnakeBody Passage: this->mPassage)
+    {
+        if(Head == Passage)
+            return true;
+    }
+    return false;
+}
+
+bool Game::is_inVector(std::vector<SnakeBody> walkThrough, SnakeBody Position)
+{
+    for(SnakeBody position : walkThrough)
+    {
+        if(position == Position)
+            return true;
+    }
+    return false;
+}
+
+//Passage END
+
+//Blood States
+bool Game::isPartOfBloodPassage(SnakeBody Head)
+{
+    for(SnakeBody Blood: this->mBloodPassage)
+    {
+        if(Head == Blood)
+            return true;
+    }
+    return false;
+}
+
+void Game::createRandomBloodPassage()
+{
+    std::vector<SnakeBody>().swap(this->mBloodPassage);
+    std::vector<SnakeBody> availableGrids;
+    for (int i = 1; i < this->mGameBoardHeight - 1; i ++)
+    {
+        for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
+        {
+            if(!isValidDot(SnakeBody(j,i)))
+            {
+                continue;
+            }
+            else
+            {
+                availableGrids.push_back(SnakeBody(j, i));
+            }
+        }
+    }
+    int random_idx = std::rand() % availableGrids.size();
+    this->mBloodPassage.push_back(availableGrids[random_idx]);
+    for (int i=0;i < 5 ; i++)
+    {
+        this->createNextDoubleDot(this->mBloodPassage.back(),this->mBloodPassage);
+    }
+    if(this->mPassage.size() < 5 )
+        std::vector<SnakeBody>().swap(this->mBloodPassage);
+}
+
+void Game::renderBloodPassage() const
+{
+    for(SnakeBody BloodPassage : this->mBloodPassage)
+    {
+        if(BloodPassage == this->mBloodPassage.back())
+        {
+            mvwaddch(this->mWindows[1],BloodPassage.getY(), BloodPassage.getX(), this->mBloodSymbol);
+            continue;
+        }
+        if(!this->mPtrSnake->isPartOfSnake(BloodPassage.getX(),BloodPassage.getY()))
+            mvwaddch(this->mWindows[1],BloodPassage.getY(), BloodPassage.getX(), this->mBloodPassageSymbol);
+    }
+    wrefresh(this->mWindows[1]);
+}
+
+void Game::appearBloodPassage()
+{
+    this->createRandomBloodPassage();
+    this->mPtrSnake->senseBloodPassage(this->mBloodPassage);
+    this->renderBloodPassage();
+}
+
+//Blood END
 
 void Game::renderSnake() const
 {
@@ -558,8 +902,8 @@ void Game::renderBoards() const
 
 void Game::adjustDelay()
 {
-    this->mDifficulty = this->mPoints / 5;
-    if (mPoints % 5 == 0)
+    this->mDifficulty = this->mPoints.back() / 5;
+    if (this->mPoints.back() % 5 == 0)
     {
         this->mDelay = this->mBaseDelay * pow(0.75, this->mDifficulty);
     }
@@ -575,6 +919,16 @@ void Game::runGame()
     Timer playTimer;
     time_t playBeforeTick,playNowTick;
     playTimer.startTimer();
+
+    //Passage information
+    std::vector<SnakeBody> PassageWalkThrough;
+    Timer PassageTimer;
+    time_t PassageTick;
+
+    //Blood information
+    std::vector<SnakeBody> BloodWalkThrough;
+    Timer BloodTimer;
+    time_t BloodTick;
 
     while (true)
     {
@@ -593,13 +947,6 @@ void Game::runGame()
         //New Here
         playTimer.updateTime();
         playNowTick = playTimer.getTick();
-        //New Passage
-        if(playNowTick != playBeforeTick && playNowTick % 47 == 0 && std::rand() % 3 == 0)
-        {
-            this->appearPassage();
-        }
-        int passageLength = int(this->mPassage.size());
-        //if()
 
         //
         if(playNowTick != playBeforeTick && playNowTick % 5 == 0)
@@ -614,43 +961,155 @@ void Game::runGame()
         bool eatFood = this->mPtrSnake->moveFoward();
         if(this->mPtrSnake->checkCollision() == true)
         {
-            break;
+            this->mSnakeLife--;
+            if(this->isDie())
+                break;
+            this->RestartGame();
+            playTimer.startTimer();
+            continue;
         }
         //New Here
         if(this->mPtrSnake->touchPoison()== true)
         {
             this->mPtrSnake->minusSnake();
-            this->mPoints--;
+            int nowPoint = this->mPoints.back();
+            this->mPoints.pop_back();
+            nowPoint--;
+            this->mPoints.push_back(nowPoint);
             if(this->mPtrSnake->isTooSmall())
             {
-                break;
+                this->mSnakeLife--;
+                if(this->isDie())
+                    break;
+                this->RestartGame();
+                playTimer.startTimer();
+                continue;
             }
+            this->adjustDelay();
             this->appearPoison();
         }
 
-        //¡ü
-
         //New Passage
-        if(this->mPtrSnake->throughPassage())
+        if(playNowTick != playBeforeTick && playNowTick % 7 == 0 && std::rand() % 2 == 0)
         {
-            this->mPoints+=5;
-            std::vector<SnakeBody>().swap(this->mPassage);
+            if(this->mPassage.size() == 0)
+            {
+                this->appearPassage();
+                PassageTimer.startTimer();
+                PassageWalkThrough = this->mPassage;
+            }
         }
+
+        if(this->mPassage.size()>0)
+        {
+            PassageTimer.updateTime();
+            PassageTick = PassageTimer.getTick();
+            if(!isPartOfPassage(this->mPtrSnake->getHead()) && PassageWalkThrough.size() != this->mPassage.size())
+            {
+                PassageWalkThrough = this->mPassage;
+            }
+            if(isPartOfPassage(this->mPtrSnake->getHead()))
+            {
+                SnakeBody Position = this->mPtrSnake->getHead();
+                if(!is_inVector(PassageWalkThrough, Position))
+                {
+                    PassageWalkThrough = this->mPassage;
+                }
+                else
+                {
+                    std::vector<SnakeBody>::iterator pos;
+                    pos = find(PassageWalkThrough.begin(), PassageWalkThrough.end(), Position);
+                    if(pos != PassageWalkThrough.end())
+                        PassageWalkThrough.erase(pos);
+                    else PassageWalkThrough.pop_back();
+                }
+                if(PassageWalkThrough.size() == 0)
+                {
+                    int nowPoint = this->mPoints.back();
+                    this->mPoints.pop_back();
+                    nowPoint += (int)(this->mPassage.size());
+                    this->mPoints.push_back(nowPoint);
+                    std::vector<SnakeBody>().swap(this->mPassage);
+                    std::vector<SnakeBody>().swap(PassageWalkThrough);
+                    this->adjustDelay();
+                }
+            }
+            if(PassageTick >= 15)
+                {
+                    std::vector<SnakeBody>().swap(this->mPassage);
+                }
+        }
+
+        //Passage END
+
+        //New BloodPassage
+        if(playNowTick != playBeforeTick && playNowTick % 7 == 0 && std::rand() % 2 == 0)
+        {
+            if(this->mBloodPassage.size() == 0)
+            {
+                this->appearBloodPassage();
+                BloodTimer.startTimer();
+                BloodWalkThrough = this->mBloodPassage;
+            }
+        }
+
+        if(this->mBloodPassage.size()>0)
+        {
+            BloodTimer.updateTime();
+            BloodTick = BloodTimer.getTick();
+            if(!isPartOfBloodPassage(this->mPtrSnake->getHead()) && BloodWalkThrough.size() != this->mBloodPassage.size())
+            {
+                BloodWalkThrough = this->mBloodPassage;
+            }
+            if(isPartOfBloodPassage(this->mPtrSnake->getHead()))
+            {
+                //还没写必须从头开始
+                SnakeBody Position = this->mPtrSnake->getHead();
+                if(!is_inVector(BloodWalkThrough, Position))
+                {
+                    BloodWalkThrough = this->mBloodPassage;
+                }
+                else
+                {
+                    std::vector<SnakeBody>::iterator pos;
+                    pos = find(BloodWalkThrough.begin(), BloodWalkThrough.end(), Position);
+                    if(pos != BloodWalkThrough.end())
+                        BloodWalkThrough.erase(pos);
+                    else BloodWalkThrough.pop_back();
+                }
+                if(BloodWalkThrough.size() == 0)
+                {
+                    this->mSnakeLife++;
+                    std::vector<SnakeBody>().swap(this->mBloodPassage);
+                    std::vector<SnakeBody>().swap(BloodWalkThrough);
+                }
+            }
+            if(BloodTick >= 15)
+                {
+                    std::vector<SnakeBody>().swap(this->mBloodPassage);
+                }
+        }
+        //Blood END
 
         //END
         this->renderSnake();
         if(eatFood == true)
         {
-            this->mPoints++;
-            this->createRamdonFood();
+            int nowPoint = this->mPoints.back();
+            this->mPoints.pop_back();
+            nowPoint++;
+            this->mPoints.push_back(nowPoint);
+            this->createRandomFood();
             this->mPtrSnake->senseFood(this->mFood);
             this->adjustDelay();
         }
         this->renderFood();
         this->renderDifficulty();
         this->renderPoints();
+        this->renderLife();
         this->renderPoison();
         this->renderPassage();
+        this->renderBloodPassage();
 
 
 
@@ -707,10 +1166,10 @@ bool Game::readLeaderBoard()
 bool Game::updateLeaderBoard()
 {
     bool updated = false;
-    int newScore = this->mPoints;
+    int newScore = this->AccumulatePoints();
     for (int i = 0; i < this->mNumLeaders; i ++)
     {
-        if (this->mLeaderBoard[i] >= this->mPoints)
+        if (this->mLeaderBoard[i] >= this->AccumulatePoints())
         {
             continue;
         }
@@ -738,6 +1197,50 @@ bool Game::writeLeaderBoard()
     return true;
 }
 
+//SnakeLife State
+void Game::renderLife() const
+{
+    std::string lifeString = std::to_string(this->mSnakeLife);
+    mvwprintw(this->mWindows[2], 15, 1, lifeString.c_str());
+    wrefresh(this->mWindows[2]);
+}
+
+void Game::RestartGame()
+{
+    //主动释放内存
+    this->mPtrSnake = nullptr;
+		this->mPtrSnake.reset(new Snake(this->mGameBoardWidth, this->mGameBoardHeight, this->mInitialSnakeLength));
+
+     this->mPoints.push_back(0);
+     this->mDifficulty = 0;
+     this->createRandomFood();
+     this->mPtrSnake->senseFood(this->mFood);
+     this->mDelay = this->mBaseDelay;
+
+     //new
+     this->PoisonLevel = 1;
+     this->appearPoison();
+     werase(this->mWindows[2]);
+     this->readLeaderBoard();
+     this->renderBoards();
+}
+
+bool Game::isDie()
+{
+    if(this->mSnakeLife == 0)
+        return true;
+    return false;
+}
+
+int Game::AccumulatePoints() const
+{
+    int ans=0;
+    for(int point: this->mPoints)
+    {
+        ans += point;
+    }
+    return ans;
+}
 
 
 

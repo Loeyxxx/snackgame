@@ -52,9 +52,17 @@ public:
 
     //Passage information
     void sensePassage(std::vector<SnakeBody> passage);
-    bool throughPassage();
     SnakeBody getHead();
+    SnakeBody getNewHead();
+    //END
 
+    //Blood information;
+    void senseBloodPassage(std::vector<SnakeBody> blood_passage);
+
+
+    //Snake information
+    int getSnakeLife();
+    bool isDie();
 
     bool changeDirection(Direction newDirection);
     std::vector<SnakeBody>& getSnake();
@@ -74,6 +82,7 @@ private:
     std::vector<SnakeBody> mPoison;
     std::vector<SnakeBody> mSnake;
     std::vector<SnakeBody> mPassgae;
+    std::vector<SnakeBody> mBloodPassage;
 };
 
 #endif

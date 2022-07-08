@@ -166,17 +166,20 @@ void Snake::sensePassage(std::vector<SnakeBody> passage)
     this->mPassgae = passage;
 }
 
-bool Snake::throughPassage()
-{
-    for(SnakeBody Passage : this->mPassgae)
-    {
-        if(!this->isPartOfSnake(Passage.getX(),Passage.getY()))
-            return false;
-    }
-    return true;
-}
+//Passage END
 
-//SnakeBody Snake::
+//Blood Item
+void Snake::senseBloodPassage(std::vector<SnakeBody> blood_passage)
+{
+    this->mBloodPassage = blood_passage;
+}
+//Blood END
+
+
+SnakeBody Snake::getHead()
+{
+    return this->mSnake[0];
+}
 
 
 std::vector<SnakeBody>& Snake::getSnake()
@@ -283,6 +286,44 @@ SnakeBody Snake::createNewHead()
     return newHead;
 }
 
+SnakeBody Snake::getNewHead()
+{
+    int newX,newY;
+    switch(this->mDirection)
+    {
+        case Direction::Up:
+            {
+                newX = this->mSnake[0].getX();
+                newY = this->mSnake[0].getY()-1;
+                break;
+            }
+        case Direction::Down:
+            {
+                newX = this->mSnake[0].getX();
+                newY = this->mSnake[0].getY()+1;
+                break;
+            }
+        case Direction::Left:
+            {
+                newX = this->mSnake[0].getX()-1;
+                newY = this->mSnake[0].getY();
+                break;
+            }
+        case Direction::Right:
+            {
+                newX = this->mSnake[0].getX()+1;
+                newY = this->mSnake[0].getY();
+                break;
+            }
+
+    }
+
+
+
+    SnakeBody newHead = SnakeBody(newX,newY);
+    return newHead;
+}
+
 /*
  * If eat food, return true, otherwise return false
  */
@@ -332,7 +373,11 @@ Direction Snake::getDirection()
 
 bool Snake::isTooSmall()
 {
-    if(this->mSnake.size() < 1)
+    if(this->mSnake.size() < 2)
+    {
         return true;
+    }
+
     return false;
 }
+
