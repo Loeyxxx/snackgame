@@ -90,6 +90,14 @@ void Snake::minusSnake()
 bool Snake::hitWall()
 {
 		// TODO check if the snake has hit the wall
+    SnakeBody Head = this->mSnake[0];
+    for(SnakeBody Map : this->mMap)
+    {
+        if(Head == Map)
+        {
+            return true;
+        }
+    }
     if(this->mSnake[0].getX() <= 0 || this->mSnake[0].getX() >= mGameBoardWidth-1)
         return true;
     if(this->mSnake[0].getY() <= 0 || this->mSnake[0].getY() >= mGameBoardHeight-1)
@@ -379,5 +387,11 @@ bool Snake::isTooSmall()
     }
 
     return false;
+}
+
+//Map information
+void Snake::senseMap(std::vector<SnakeBody> Map)
+{
+    this->mMap = Map;
 }
 

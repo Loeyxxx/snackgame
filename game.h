@@ -56,14 +56,14 @@ public:
     void createRandomPoison();
     void renderPoison() const;
     void appearPoison();
-    bool isPartOfPoison(SnakeBody Head);
+    bool isPartOfPoison(SnakeBody Head) const;
     //New here for Passage
     void createRandomPassage();
     void createNextDoubleDot(SnakeBody Dot, std::vector<SnakeBody>& lines);
     void createNextDot(SnakeBody Dot, std::vector<SnakeBody>& lines);
     void renderPassage() const;
     void appearPassage();
-    bool isPartOfPassage(SnakeBody Head);
+    bool isPartOfPassage(SnakeBody Head) const;
     bool is_inVector(std::vector<SnakeBody> walkThrough, SnakeBody Position);
     bool isValidDot(SnakeBody Dot);
 
@@ -80,9 +80,21 @@ public:
     void createRandomBloodPassage();
     void renderBloodPassage() const;
     void appearBloodPassage();
-    bool isPartOfBloodPassage(SnakeBody Head);
+    bool isPartOfBloodPassage(SnakeBody Head) const;
 
+    //New here for Map
+    void createRandomMap();
+    void renderMap() const;
+    void createMapBoard();
+    bool isPartOfMap(SnakeBody Head) const;
 
+    void createAvailableGrids();
+    //New here for Grass
+    void createRandomGrass();
+    bool isPartOfGrass(SnakeBody Head) const;
+    void renderGrass() const;
+    void appearGrass();
+    void GrassDelay();
 
 private:
     // We need to have two windows
@@ -125,6 +137,11 @@ private:
     const char mBloodSymbol = '&';
     const char mBloodPassageSymbol = 'O';
     std::vector<SnakeBody> mBloodPassage;
+
+    //States information
+    std::vector<SnakeBody> mMap;
+    std::vector<SnakeBody> mAvailable;
+    std::vector<SnakeBody> mGrass;
 };
 
 #endif

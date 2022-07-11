@@ -58,11 +58,15 @@ public:
 
     //Blood information;
     void senseBloodPassage(std::vector<SnakeBody> blood_passage);
+    //END
 
-
-    //Snake information
+    //Life information
     int getSnakeLife();
     bool isDie();
+    //END
+
+    //Map information
+    void senseMap(std::vector<SnakeBody> Map);
 
     bool changeDirection(Direction newDirection);
     std::vector<SnakeBody>& getSnake();
@@ -83,6 +87,7 @@ private:
     std::vector<SnakeBody> mSnake;
     std::vector<SnakeBody> mPassgae;
     std::vector<SnakeBody> mBloodPassage;
+    std::vector<SnakeBody> mMap;
 };
 
 #endif

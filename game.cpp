@@ -13,11 +13,16 @@
 
 #include "curses.h"
 #include "game.h"
-#include "Timer.h""
+#include "Timer.h"
 
-#include "winuser.h"
-#define isKeyPressed(nVirtKey) (GetKeyState(nVirtKey) & (1<<(sizeof(SHORT)*8-1))) != 0
-
+#define SNAKE_PAIR 2
+#define MAP_PAIR 3
+#define GRASS_PAIR 4
+#define PASSAGE_PAIR 5
+#define BLOOD_PAIR 6
+#define POISON_PAIR 7
+#define POISON_GRASS_PAIR 8
+#define FOOD_GRASS_PAIR 9
 
 Game::Game()
 {
@@ -36,6 +41,26 @@ Game::Game()
     getmaxyx(stdscr, this->mScreenHeight, this->mScreenWidth);
     this->mGameBoardWidth = this->mScreenWidth - this->mInstructionWidth;
     this->mGameBoardHeight = this->mScreenHeight - this->mInformationHeight;
+
+    //开启颜色系统
+    if(has_colors()==false)
+    {
+        endwin();
+        printf("wrong");
+        exit(1);
+    }
+    start_color();
+    //init_color(COLOR_White,252,249,240);
+    init_pair(SNAKE_PAIR,COLOR_YELLOW,COLOR_YELLOW);
+    init_pair(1,COLOR_YELLOW, COLOR_MAGENTA);
+    init_pair(MAP_PAIR,COLOR_WHITE,COLOR_WHITE);
+    init_pair(PASSAGE_PAIR,COLOR_WHITE,COLOR_BLUE);
+    init_pair(BLOOD_PAIR,COLOR_WHITE,COLOR_MAGENTA);
+    init_pair(GRASS_PAIR,COLOR_WHITE,COLOR_GREEN);
+    init_pair(POISON_PAIR,COLOR_RED,COLOR_BLACK);
+    init_pair(POISON_GRASS_PAIR,COLOR_RED,COLOR_GREEN);
+    init_pair(FOOD_GRASS_PAIR,COLOR_YELLOW,COLOR_GREEN);
+
 
     this->createInformationBoard();
     this->createGameBoard();
@@ -63,7 +88,11 @@ void Game::createInformationBoard()
 
 void Game::renderInformationBoard() const
 {
-    mvwprintw(this->mWindows[0], 1, 1, "Welcome to The Snake Game!");
+
+    wattron(this->mWindows[0],COLOR_PAIR(1));
+    mvwaddstr(this->mWindows[0],1,1,"Welcome to The Snake Game");
+    //mvwprintw(this->mWindows[0], 1, 1, "Welcome to The Snake Game!");
+    wattroff(this->mWindows[0],COLOR_PAIR(1));
     mvwprintw(this->mWindows[0], 2, 1, "This is a mock version.");
     mvwprintw(this->mWindows[0], 3, 1, "Please fill in the blanks to make it work properly!!");
     mvwprintw(this->mWindows[0], 4, 1, "Implemented using C++ and libncurses library.");
@@ -308,10 +337,16 @@ void Game::initializeGame()
      this->mPtrSnake->senseFood(this->mFood);
      this->mDelay = this->mBaseDelay;
 
+
      //new
      this->PoisonLevel = 1;
      this->appearPoison();
 
+     //Map
+     this->createRandomMap();
+     this->renderMap();
+     this->createRandomGrass();
+     this->renderGrass();
 
 }
 
@@ -345,7 +380,16 @@ void Game::createRandomFood()
 
 void Game::renderFood() const
 {
-    mvwaddch(this->mWindows[1], this->mFood.getY(), this->mFood.getX(), this->mFoodSymbol);
+    if(isPartOfGrass(this->mFood))
+    {
+        wattron(mWindows[1],COLOR_PAIR(FOOD_GRASS_PAIR));
+        mvwaddch(this->mWindows[1], this->mFood.getY(), this->mFood.getX(), this->mFoodSymbol);
+        wattroff(mWindows[1],COLOR_PAIR(FOOD_GRASS_PAIR));
+    }
+    else
+    {
+         mvwaddch(this->mWindows[1], this->mFood.getY(), this->mFood.getX(), this->mFoodSymbol);
+    }
     wrefresh(this->mWindows[1]);
 }
 
@@ -353,35 +397,32 @@ void Game::renderFood() const
 void Game::createRandomPoison()
 {
     std::vector<SnakeBody>().swap(this->mPoison);
-    std::vector<SnakeBody> availableGrids;
-    for (int i = 1; i < this->mGameBoardHeight - 1; i ++)
-    {
-        for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
-        {
-            if(!isValidDot(SnakeBody(j,i)))
-            {
-                continue;
-            }
-            else
-            {
-                availableGrids.push_back(SnakeBody(j, i));
-            }
-        }
-    }
 
-    for (int i=0;i<PoisonLevel;i++)
+
+    for(int i=0;i<2;i++)
     {
-        int random_idx = std::rand() % availableGrids.size();
-        this->mPoison.push_back(availableGrids[random_idx]);
+        this->createAvailableGrids();
+        int random_idx = std::rand() % this->mAvailable.size();
+        this->mPoison.push_back(this->mAvailable[random_idx]);
     }
 }
 
 void Game::renderPoison() const
 {
+    wattron(mWindows[1],COLOR_PAIR(POISON_PAIR));
     for(SnakeBody Poison : this->mPoison)
     {
-        mvwaddch(this->mWindows[1],Poison.getY(), Poison.getX(), this->mPoisonSymbol);
+        if(!isPartOfGrass(Poison))
+            mvwaddch(this->mWindows[1],Poison.getY(), Poison.getX(), this->mPoisonSymbol);
     }
+    wattroff(mWindows[1],COLOR_PAIR(POISON_PAIR));
+    wattron(mWindows[1],COLOR_PAIR(POISON_GRASS_PAIR));
+    for(SnakeBody Poison : this->mPoison)
+    {
+        if(isPartOfGrass(Poison))
+            mvwaddch(this->mWindows[1],Poison.getY(), Poison.getX(), this->mPoisonSymbol);
+    }
+    wattroff(mWindows[1],COLOR_PAIR(POISON_GRASS_PAIR));
     wrefresh(this->mWindows[1]);
 }
 
@@ -391,7 +432,7 @@ void Game::appearPoison()
     this->mPtrSnake->sensePoison(this->mPoison);
     this->renderPoison();
 }
-bool Game::isPartOfPoison(SnakeBody Head)
+bool Game::isPartOfPoison(SnakeBody Head) const
 {
     for(SnakeBody Poison: this->mPoison)
     {
@@ -405,6 +446,8 @@ bool Game::isPartOfPoison(SnakeBody Head)
 //Passage States
 bool Game::isValidDot(SnakeBody Dot)
 {
+    if(isPartOfMap(Dot))
+        return false;
     if(isPartOfPassage(Dot))
         return false;
     if(isPartOfPoison(Dot))
@@ -414,7 +457,7 @@ bool Game::isValidDot(SnakeBody Dot)
     int DotX=Dot.getX(),DotY=Dot.getY();
     if(this->mPtrSnake->isPartOfSnake(DotX, DotY))
         return false;
-    if (DotX < 1 || DotX >= this->mGameBoardHeight - 1 || DotY < 1 || DotY >= this->mGameBoardWidth -1)
+    if (DotX < 1 || DotX >= this->mGameBoardWidth - 1 || DotY < 1 || DotY >= this->mGameBoardHeight -1)
         return false;
     return true;
 }
@@ -646,35 +689,6 @@ void Game::createTurningDot(std::vector<SnakeBody>& lines)
 }
 
 
-/*void Game::createHardPassage()
-{
-    std::vector<SnakeBody>().swap(this->mPassage);
-    std::vector<SnakeBody> availableGrids;
-    for (int i = 1; i < this->mGameBoardHeight - 1; i ++)
-    {
-        for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
-        {
-            if(this->mPtrSnake->isPartOfSnake(j, i))
-            {
-                continue;
-            }
-            else
-            {
-                availableGrids.push_back(SnakeBody(j, i));
-            }
-        }
-    }
-    int random_idx = std::rand() % availableGrids.size();
-    this->mPassage.push_back(availableGrids[random_idx]);
-    for (int i=0;i < 10 ; i++)
-    {
-        this->createNextDoubleDot(this->mPassage.back());
-    }
-    if(this->mPassage.size() < 2 )
-        std::vector<SnakeBody>().swap(this->mPassage);
-}
-*/
-
 void Game::createRandomPassage()
 {
     std::vector<SnakeBody>().swap(this->mPassage);
@@ -708,11 +722,14 @@ void Game::createRandomPassage()
 
 void Game::renderPassage() const
 {
+    init_color(COLOR_BLUE,3,168,158);
+    wattron(this->mWindows[1],COLOR_PAIR(PASSAGE_PAIR));
     for(SnakeBody Passage : this->mPassage)
     {
         if(!this->mPtrSnake->isPartOfSnake(Passage.getX(),Passage.getY()))
             mvwaddch(this->mWindows[1],Passage.getY(), Passage.getX(), this->mPassageSymbol);
     }
+    wattroff(this->mWindows[1],COLOR_PAIR(PASSAGE_PAIR));
     wrefresh(this->mWindows[1]);
 }
 
@@ -723,7 +740,7 @@ void Game::appearPassage()
     this->renderPassage();
 }
 
-bool Game::isPartOfPassage(SnakeBody Head)
+bool Game::isPartOfPassage(SnakeBody Head) const
 {
     for(SnakeBody Passage: this->mPassage)
     {
@@ -746,7 +763,7 @@ bool Game::is_inVector(std::vector<SnakeBody> walkThrough, SnakeBody Position)
 //Passage END
 
 //Blood States
-bool Game::isPartOfBloodPassage(SnakeBody Head)
+bool Game::isPartOfBloodPassage(SnakeBody Head) const
 {
     for(SnakeBody Blood: this->mBloodPassage)
     {
@@ -786,16 +803,18 @@ void Game::createRandomBloodPassage()
 
 void Game::renderBloodPassage() const
 {
+    wattron(this->mWindows[1],COLOR_PAIR(BLOOD_PAIR));
     for(SnakeBody BloodPassage : this->mBloodPassage)
     {
+        if(!this->mPtrSnake->isPartOfSnake(BloodPassage.getX(),BloodPassage.getY()))
+            mvwaddch(this->mWindows[1],BloodPassage.getY(), BloodPassage.getX(), this->mBloodPassageSymbol);
         if(BloodPassage == this->mBloodPassage.back())
         {
             mvwaddch(this->mWindows[1],BloodPassage.getY(), BloodPassage.getX(), this->mBloodSymbol);
             continue;
         }
-        if(!this->mPtrSnake->isPartOfSnake(BloodPassage.getX(),BloodPassage.getY()))
-            mvwaddch(this->mWindows[1],BloodPassage.getY(), BloodPassage.getX(), this->mBloodPassageSymbol);
     }
+    wattroff(this->mWindows[1],COLOR_PAIR(SNAKE_PAIR));
     wrefresh(this->mWindows[1]);
 }
 
@@ -812,10 +831,12 @@ void Game::renderSnake() const
 {
     int snakeLength = this->mPtrSnake->getLength();
     std::vector<SnakeBody>& snake = this->mPtrSnake->getSnake();
+    wattron(this->mWindows[1],COLOR_PAIR(SNAKE_PAIR));
     for (int i = 0; i < snakeLength; i ++)
     {
         mvwaddch(this->mWindows[1], snake[i].getY(), snake[i].getX(), this->mSnakeSymbol);
     }
+    wattroff(this->mWindows[1],COLOR_PAIR(SNAKE_PAIR));
     wrefresh(this->mWindows[1]);
 }
 
@@ -891,11 +912,10 @@ void Game::renderBoards() const
     this->renderInformationBoard();
     this->renderGameBoard();
     this->renderInstructionBoard();
-    for (int i = 0; i < this->mWindows.size(); i ++)
-    {
-        box(this->mWindows[i], 0, 0);
-        wrefresh(this->mWindows[i]);
-    }
+    box(this->mWindows[0], 0, 0);
+    wrefresh(this->mWindows[0]);
+    box(this->mWindows[2], 0, 0);
+        wrefresh(this->mWindows[2]);
     this->renderLeaderBoard();
 }
 
@@ -907,6 +927,7 @@ void Game::adjustDelay()
     {
         this->mDelay = this->mBaseDelay * pow(0.75, this->mDifficulty);
     }
+    this->mDelay = this->mBaseDelay * pow(0.75, this->mDifficulty);
 
 }
 
@@ -929,6 +950,9 @@ void Game::runGame()
     std::vector<SnakeBody> BloodWalkThrough;
     Timer BloodTimer;
     time_t BloodTick;
+
+    //Grass information
+    int flag=0; //flag为0表示之前不在草上
 
     while (true)
     {
@@ -956,9 +980,30 @@ void Game::runGame()
         //↑
         this->controlSnake();
         werase(this->mWindows[1]);
-        box(this->mWindows[1],0,0);
+        //box(this->mWindows[1],0,0);
 
         bool eatFood = this->mPtrSnake->moveFoward();
+        if(eatFood == true && flag==0)
+        {
+            int nowPoint = this->mPoints.back();
+            this->mPoints.pop_back();
+            nowPoint++;
+            this->mPoints.push_back(nowPoint);
+            this->createRandomFood();
+            this->mPtrSnake->senseFood(this->mFood);
+            this->adjustDelay();
+        }
+        if(eatFood == true && flag ==1)//在草地上吃食物获得额外加分
+        {
+            int nowPoint = this->mPoints.back();
+            this->mPoints.pop_back();
+            nowPoint+=2;
+            this->mPoints.push_back(nowPoint);
+            this->createRandomFood();
+            this->mPtrSnake->senseFood(this->mFood);
+            this->adjustDelay();
+            this->GrassDelay();
+        }
         if(this->mPtrSnake->checkCollision() == true)
         {
             this->mSnakeLife--;
@@ -968,6 +1013,22 @@ void Game::runGame()
             playTimer.startTimer();
             continue;
         }
+        //检验是否在草地上
+        if(playNowTick != playBeforeTick && playNowTick % 15 == 0 && std::rand() % 2 == 0)
+        {
+            this->appearGrass();
+        }
+        if(isPartOfGrass(this->mPtrSnake->getHead()) && flag==0)
+        {
+            flag=1 ;//flag为1表示之前在草地上
+            this->GrassDelay();
+        }
+        if(!isPartOfGrass(this->mPtrSnake->getHead()) && flag==1) //检验是否离开草地
+        {
+            flag=0;
+            this->adjustDelay();
+        }
+
         //New Here
         if(this->mPtrSnake->touchPoison()== true)
         {
@@ -990,20 +1051,12 @@ void Game::runGame()
         }
 
         //New Passage
-        if(playNowTick != playBeforeTick && playNowTick % 7 == 0 && std::rand() % 2 == 0)
-        {
-            if(this->mPassage.size() == 0)
-            {
-                this->appearPassage();
-                PassageTimer.startTimer();
-                PassageWalkThrough = this->mPassage;
-            }
-        }
 
         if(this->mPassage.size()>0)
         {
             PassageTimer.updateTime();
             PassageTick = PassageTimer.getTick();
+            //检验蛇在中途有没有走出轨道
             if(!isPartOfPassage(this->mPtrSnake->getHead()) && PassageWalkThrough.size() != this->mPassage.size())
             {
                 PassageWalkThrough = this->mPassage;
@@ -1011,6 +1064,7 @@ void Game::runGame()
             if(isPartOfPassage(this->mPtrSnake->getHead()))
             {
                 SnakeBody Position = this->mPtrSnake->getHead();
+                //检验蛇有没有重复走轨道中的一个位置
                 if(!is_inVector(PassageWalkThrough, Position))
                 {
                     PassageWalkThrough = this->mPassage;
@@ -1034,10 +1088,20 @@ void Game::runGame()
                     this->adjustDelay();
                 }
             }
+            //15s后轨道自动消失
             if(PassageTick >= 15)
                 {
                     std::vector<SnakeBody>().swap(this->mPassage);
                 }
+        }
+        if(playNowTick != playBeforeTick && playNowTick % 7 == 0 && std::rand() % 2 == 0)
+        {
+            if(this->mPassage.size() == 0)
+            {
+                this->appearPassage();
+                PassageTimer.startTimer();
+                PassageWalkThrough = this->mPassage;
+            }
         }
 
         //Passage END
@@ -1063,8 +1127,12 @@ void Game::runGame()
             }
             if(isPartOfBloodPassage(this->mPtrSnake->getHead()))
             {
-                //还没写必须从头开始
                 SnakeBody Position = this->mPtrSnake->getHead();
+                //检验是不是从头开始
+                if(BloodWalkThrough.size() == 1 && !(Position == this->mBloodPassage.back()))
+                {
+                    BloodWalkThrough = this->mBloodPassage;
+                }
                 if(!is_inVector(BloodWalkThrough, Position))
                 {
                     BloodWalkThrough = this->mBloodPassage;
@@ -1093,16 +1161,6 @@ void Game::runGame()
 
         //END
         this->renderSnake();
-        if(eatFood == true)
-        {
-            int nowPoint = this->mPoints.back();
-            this->mPoints.pop_back();
-            nowPoint++;
-            this->mPoints.push_back(nowPoint);
-            this->createRandomFood();
-            this->mPtrSnake->senseFood(this->mFood);
-            this->adjustDelay();
-        }
         this->renderFood();
         this->renderDifficulty();
         this->renderPoints();
@@ -1110,6 +1168,8 @@ void Game::runGame()
         this->renderPoison();
         this->renderPassage();
         this->renderBloodPassage();
+        this->renderMap();
+        this->renderGrass();
 
 
 
@@ -1207,11 +1267,14 @@ void Game::renderLife() const
 
 void Game::RestartGame()
 {
+    //清屏
+    werase(this->mWindows[1]);
     //主动释放内存
     this->mPtrSnake = nullptr;
 		this->mPtrSnake.reset(new Snake(this->mGameBoardWidth, this->mGameBoardHeight, this->mInitialSnakeLength));
 
-     this->mPoints.push_back(0);
+	 this->renderSnake();
+     this->mPoints.push_back(0);//初始化当局得分
      this->mDifficulty = 0;
      this->createRandomFood();
      this->mPtrSnake->senseFood(this->mFood);
@@ -1220,6 +1283,16 @@ void Game::RestartGame()
      //new
      this->PoisonLevel = 1;
      this->appearPoison();
+     std::vector<SnakeBody>().swap(this->mPassage);
+     std::vector<SnakeBody>().swap(this->mBloodPassage);
+
+     //map
+     std::vector<SnakeBody>().swap(this->mMap);
+     this->createRandomMap();
+     //Grass
+     std::vector<SnakeBody>().swap(this->mGrass);
+     this->createRandomGrass();
+
      werase(this->mWindows[2]);
      this->readLeaderBoard();
      this->renderBoards();
@@ -1242,8 +1315,162 @@ int Game::AccumulatePoints() const
     return ans;
 }
 
+//Map States
+void Game::createMapBoard()
+{
+    for(int i=1;i<this->mGameBoardWidth;i++)
+    {
+        this->mMap.push_back(SnakeBody(i,1));
+    }
+    for(int i=1;i<this->mGameBoardWidth;i++)
+    {
+        this->mMap.push_back(SnakeBody(i,this->mGameBoardHeight-1));
+    }
+    for(int i=1;i<this->mGameBoardWidth;i++)
+    {
+        this->mMap.push_back(SnakeBody(1,i));
+    }
+    for(int i=1;i<this->mGameBoardWidth;i++)
+    {
+        this->mMap.push_back(SnakeBody(this->mGameBoardWidth-1,i));
+    }
 
+}
 
+void Game::createRandomMap()
+{
+    this->createMapBoard();
+    std::vector<SnakeBody> Map1;
+    std::vector<std::vector<SnakeBody> > AllMap;
+    for(int i=1;i<15;i++)
+    {
+        for(int j=1;j<8;j++)
+        {
+            Map1.push_back(SnakeBody(i,j));
+            Map1.push_back(SnakeBody(this->mGameBoardWidth-i,j));
+            Map1.push_back(SnakeBody(this->mGameBoardWidth-i,this->mGameBoardHeight-1-j));
+            Map1.push_back(SnakeBody(i,this->mGameBoardHeight-1-j));
+        }
+    }
+    AllMap.push_back(Map1);
+    std::vector<SnakeBody> Map2;
+    for(int i=0;i<10;i++)
+    {
+        for(int j=1;j<7;j++)
+        {
+            Map2.push_back(SnakeBody(this->mGameBoardWidth/2 -i,j));
+            Map2.push_back(SnakeBody(this->mGameBoardWidth/2 +i,j));
+            Map2.push_back(SnakeBody(1+i,this->mGameBoardHeight/2 -3+j));
+        }
+    }
+    AllMap.push_back(Map2);
+    std::vector<SnakeBody> Map3;
+    for(int i=0;i<20;i++)
+    {
+        for(int j=0;j<10;j++)
+        {
+            Map3.push_back(SnakeBody(i+15,10+j));
+        }
+    }
+    AllMap.push_back(Map3);
+    int random_idx = std::rand() % AllMap.size();
+    this->mMap.insert(this->mMap.end(),AllMap[random_idx].begin(),AllMap[random_idx].end());
+    this->mPtrSnake->senseMap(this->mMap);
+}
+
+void Game::renderMap() const
+{
+    wattron(this->mWindows[1],COLOR_PAIR(MAP_PAIR));
+    for (SnakeBody Map:this->mMap)
+    {
+        mvwaddch(this->mWindows[1], Map.getY(), Map.getX(), ' ');
+    }
+    wattroff(this->mWindows[1],COLOR_PAIR(MAP_PAIR));
+    wrefresh(this->mWindows[1]);
+}
+
+void Game::createAvailableGrids()
+{
+    std::vector<SnakeBody>().swap(this->mAvailable);
+    std::vector<SnakeBody> availableGrids;
+    for (int i = 1; i < this->mGameBoardHeight - 1; i ++)
+    {
+        for (int j = 1; j < this->mGameBoardWidth - 1; j ++)
+        {
+            if(!isValidDot(SnakeBody(j,i)))
+            {
+                continue;
+            }
+            else
+            {
+                this->mAvailable.push_back(SnakeBody(j, i));
+            }
+        }
+    }
+}
+
+bool Game::isPartOfMap(SnakeBody Head) const
+{
+    for(SnakeBody Map: this->mMap)
+    {
+        if(Head == Map)
+            return true;
+    }
+    return false;
+}
+
+//Map END
+//Grass States
+void Game::createRandomGrass()
+{
+    std::vector<SnakeBody>().swap(this->mGrass);
+    int random_width = std::rand()%20+5;
+    int random_height= std::rand()%10+5;
+    int random_widthstart = std::rand()%this->mGameBoardWidth;
+    int random_heightstart = std::rand()%this->mGameBoardHeight;
+    for(int i=0;i<random_width;i++)
+    {
+        for(int j=0;j<random_height;j++)
+        {
+            if(isValidDot(SnakeBody(i+random_widthstart,j+random_heightstart)))
+                this->mGrass.push_back(SnakeBody(i+random_widthstart,j+random_heightstart));
+        }
+    }
+}
+
+void Game::renderGrass() const
+{
+    wattron(this->mWindows[1],COLOR_PAIR(GRASS_PAIR));
+    for (SnakeBody Grass:this->mGrass)
+    {
+        if(!this->mPtrSnake->isPartOfSnake(Grass.getX(),Grass.getY()) && !isPartOfBloodPassage(Grass) && !isPartOfPassage(Grass) && !isPartOfPoison(Grass) && !(Grass == this->mFood))
+            mvwaddch(this->mWindows[1],Grass.getY(), Grass.getX(), ' ');
+    }
+    wattroff(this->mWindows[1],COLOR_PAIR(GRASS_PAIR));
+    wrefresh(this->mWindows[1]);
+}
+
+bool Game::isPartOfGrass(SnakeBody Head) const
+{
+    for(SnakeBody Grass: this->mGrass)
+    {
+        if(Head == Grass)
+            return true;
+    }
+    return false;
+}
+
+void Game::GrassDelay()
+{
+    this->mDelay *= 0.5;
+}
+
+void Game::appearGrass()
+{
+    this->createRandomGrass();
+    this->renderGrass();
+}
+//Grass END
 
 
 

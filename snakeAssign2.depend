@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1657273896 source:f:\study\c++summersemester\snackassign2\snakeassign2\game.cpp
+1657508409 source:f:\study\c++summersemester\snackassign2\snakeassign2\game.cpp
 	<string>
 	<iostream>
 	<cmath>
@@ -19,7 +19,7 @@
 	<wchar.h>
 	<stdbool.h>
 
-1657290905 f:\study\c++summersemester\snackassign2\snakeassign2\game.h
+1657508404 f:\study\c++summersemester\snackassign2\snakeassign2\game.h
 	"curses.h"
 	<string>
 	<vector>
@@ -27,13 +27,13 @@
 	"snake.h"
 	"Timer.h"
 
-1657273498 f:\study\c++summersemester\snackassign2\snakeassign2\snake.h
+1657445040 f:\study\c++summersemester\snackassign2\snakeassign2\snake.h
 	<vector>
 
-1655910580 source:f:\study\c++summersemester\snackassign2\snakeassign2\main.cpp
+1657351239 source:f:\study\c++summersemester\snackassign2\snakeassign2\main.cpp
 	"game.h"
 
-1657273513 source:f:\study\c++summersemester\snackassign2\snakeassign2\snake.cpp
+1657445331 source:f:\study\c++summersemester\snackassign2\snakeassign2\snake.cpp
 	<string>
 	<cstdlib>
 	<ctime>
