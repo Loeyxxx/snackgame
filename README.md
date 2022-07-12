@@ -46,6 +46,7 @@
 本项目编写时使用mingw编译器，需要连接pdcurses库和libwinmm.a库。
 
 配置方法（CodeBlocks）：
+
 Settings->Compiler->Search Directories->Add，添加PDCurses.lib和libwinmm.a所在的路径。（后者一般可以在IDE安装目录下.\MinGW\x86_64-w64-mingw32\lib中找到）
 
 Settings->Compiler->Linker Settings->Add，添加pdcurses.lib和libwinmm.a。
