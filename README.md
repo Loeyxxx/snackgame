@@ -42,11 +42,16 @@
     + **第四关**：生命值为3，随机地图，随机生成4个障碍物，持续生成食物、毒药、加分路径。毒药数量为3。分数达到20即通过。
     + **第五关**：初始生命值为2，随机地图，随机生成5个障碍物，持续生成食物、毒药、新生命值。毒药数量为3。存活时间达60秒即通过。
 
-## 2. 具体环境配置信息
-？
+## 2. 环境配置
+本项目编写时使用mingw编译器，需要连接pdcurses库和libwinmm.a库。
+
+配置方法（CodeBlocks）：
+Settings->Compiler->Search Directories->Add，添加PDCurses.lib和libwinmm.a所在的路径。（后者一般可以在IDE安装目录下.\MinGW\x86_64-w64-mingw32\lib中找到）
+
+Settings->Compiler->Linker Settings->Add，添加pdcurses.lib和libwinmm.a。
 
 
-## 3. 运行所需详细步骤
+## 3. 运行步骤
 以下为运行main、对game进行初始化后的函数按调用顺序进行介绍。部分功能的实现过程会在下一部分进行解释。
 
 ### 3.1 startGame
