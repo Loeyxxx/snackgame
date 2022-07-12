@@ -159,7 +159,59 @@ this->runGame();
 ```
 若modeChoice==3则表示闯关失败，调用renderRestartMenu选择是否重新开始游戏。若为4则表示通关，调用renderWinMenu展示通关信息。levelMode结束。
 
-### 3.4 infiniteMode, levelOne ~ levelFive
+### 3.4 initializeGame
+```
+		this->mPtrSnake.reset(new Snake(this->mGameBoardWidth, this->mGameBoardHeight, this->mInitialSnakeLength));
+
+```
+蛇指针重新生成。
+
+```
+    switch (this->modeChoice)
+    {
+        case 1:
+        case 5:
+        {
+            std::vector<SnakeBody>().swap(this->mMap);
+            this->createMapBoard();
+            this->mPtrSnake->senseMap(this->mMap);
+            break;
+        }
+        case 6:
+        {
+            std::vector<SnakeBody>().swap(this->mMap);
+            this->createMapBoard();
+            this->mPtrSnake->senseMap(this->mMap);
+            this->createRandomGrass();
+            break;
+        }
+        case 7:
+        case 8:
+        case 9:
+        {
+            std::vector<SnakeBody>().swap(this->mMap);
+            this->createRandomMap();
+            this->mPtrSnake->senseMap(this->mMap);
+            this->createRandomGrass();
+            break;
+        }
+    }
+```
+生成每个关卡对应的地图，无限模式与第一关只需生成矩形边框，第二关生成矩形边框和草地，三到五关生成随机地图和草地。生成后调用sense使蛇后续能进行对地形的判定。
+
+```
+    std::vector<int>().swap(this->mPoints);
+    this->mPoints.push_back(0);
+    this->mDifficulty = 0;
+    this->mDelay = this->mBaseDelay;
+    this->createRandomFood();
+    this->mPtrSnake->senseFood(this->mFood);
+
+    this->mSnakeLife = 1;
+```
+对分数、难度等级、刷新时间、食物和生命值进行初始化。
+
+### 3.5 infiniteMode, levelOne ~ levelFive
 由于各关难度递增且包含游戏元素递增，该六个函数大致有从后向前包含的特点，故在此摘取各关键片段进行整合解释。
 
 ```
@@ -201,7 +253,7 @@ this->runGame();
 
     double playTime = 0;
 ```
-首先调用backgroundMusic实现游戏背景音乐，将各关卡所需初始化条件实现。其中最后一行playTime为第五关通关检测条件。
+首先调用backgroundMusic实现游戏背景音乐，将各关卡所需初始化条件实现。其中最后一行playTime为第五关勇于检测是否通关的条件。
 
 ```
     while (true)
@@ -226,6 +278,11 @@ this->runGame();
 
 ```
         bool eatFood = this->mPtrSnake->moveFoward();
+        if (eatFood)
+        {
+            soundEffect(1);
+        }
+        
         //检验是否在草地上
         if(playNowTick != playBeforeTick && playNowTick % 15 == 0 && std::rand() % 2 == 0)
         {
@@ -274,7 +331,7 @@ this->runGame();
         }
 
 ```
-每15s刷新一次草地，flag表示蛇在草上（flag=1）和蛇不在草上（flag=1）的状态，蛇头在移动后首次进入草->触发音效+蛇加速，蛇头在移动后离开草地->蛇恢复速度。如果蛇在草上（flag=1）的时候吃到了食物->加2分+蛇长度加1
+每15s刷新一次草地，flag表示蛇在草上（flag=1）和蛇不在草上（flag=1）的状态，蛇头在移动后首次进入草->触发音效+蛇加速，蛇头在移动后离开草地->蛇恢复速度。如果蛇在草上（flag=1）的时候吃到了食物->加2分+蛇长度加1。实现吃到食物、进入草地和离开草地时的音效控制。
 
 ```
         if (this->mPtrSnake->checkCollision())
@@ -290,7 +347,7 @@ this->runGame();
         }
 
 ```
-判定是否碰撞地图边界或自身。如是，生命值-1，调用isDie判断生命值是否用尽，如未用尽则调用RestartGame复活，刷新计时器。其中改变playTime一行为时间通关条件特有，记录从第一条生命值开始游戏运行时间。
+判定是否碰撞地图边界或自身。如是，生命值-1，调用isDie判断生命值是否用尽，如未用尽则调用RestartGame复活，刷新计时器。其中playTime += playTimer.getTick()为时间通关条件特有，记录从第一条生命值开始游戏运行时间。
 
 ```
         if (this->mPtrSnake->hitObstacle())
@@ -398,8 +455,56 @@ this->runGame();
 若没有加分路径，则每7秒刷新且随机判断能否出现加分路径。当出现加速路径时开始计时，15s后该路径自动消失。如果蛇可以在路径存在的时间内，将路径完整的走完（中间不允许离开该路径），则获得额外的加分（加分=路径的长度）
 
 ```
+        if(playNowTick != playBeforeTick && playNowTick % 10 == 0 && std::rand() % 2 == 0)
+        {
+            if(this->mBloodPassage.size() == 0)
+            {
+                this->appearBloodPassage();
+                BloodTimer.startTimer();
+                BloodWalkThrough = this->mBloodPassage;
+            }
+        }
+        if(this->mBloodPassage.size()>0)
+        {
+            BloodTimer.updateTime();
+            BloodTick = BloodTimer.getTick();
+            if(!isPartOfBloodPassage(this->mPtrSnake->getHead()) && BloodWalkThrough.size() != this->mBloodPassage.size())
+            {
+                BloodWalkThrough = this->mBloodPassage;
+            }
+            
+            if(isPartOfBloodPassage(this->mPtrSnake->getHead()))
+            {
+                //检查是否是从头开始
+                SnakeBody Position = this->mPtrSnake->getHead();
+                if (BloodWalkThrough.size() == 1 && !(Position == this->mBloodPassage.back()))
+                {
+                    BloodWalkThrough = this->mBloodPassage;
+                }
+                else
+                {
+                    std::vector<SnakeBody>::iterator pos;
+                    pos = find(BloodWalkThrough.begin(), BloodWalkThrough.end(), Position);
+                    if(pos != BloodWalkThrough.end())
+                        BloodWalkThrough.erase(pos);
+                    else BloodWalkThrough.pop_back();
+                }
+                if(BloodWalkThrough.size() == 0)
+                {
+                    soundEffect(4);
+                    this->mSnakeLife++;
+                    std::vector<SnakeBody>().swap(this->mBloodPassage);
+                    std::vector<SnakeBody>().swap(BloodWalkThrough);
+                }
+            }
+            if(BloodTick >= 15)
+                {
+                    std::vector<SnakeBody>().swap(this->mBloodPassage);
+                }
+        }
+
 ```
-若没有加血道具，则每10秒随机判断能否出现加血道具。当出现加血道具时开始计时，15s后该路径自动消失。如果蛇可以在道具存在的时间内，将道具前面的路完整的走完（中间不允许离开该路径，且必须从尾巴（即道具&）处离开），则生命值+1
+若没有加血道具，则每10秒随机判断能否出现加血道具。当出现加血道具时开始计时，15s后该路径自动消失。如果蛇可以在道具存在的时间内，将道具前面的路完整的走完（中间不允许离开该路径，且必须从尾巴（即道具&）处离开），则生命值+1。此部分内容与加分路径对应部分几乎一致，仅有刷新时间与18行开始的从头进入路径判定有所区别，后者将在第四部分具体功能实现中加以解释。
 
 ```
         playTimer.updateTime();
@@ -530,35 +635,41 @@ void Timer::startTimer(){
 }
 ```
 获得开始时间(系统时间，避免收到mDelay的影响)
+
+**void Timer::updateTime()**
 ```
-void Timer::updateTime() {
     currentTime = time(NULL);
-}
 ```
-更新时间，获得现在的时间
+更新时间，获得现在的时间。
+
+
 ```
-unsigned int Timer::getPlayTime() {
+unsigned int Timer::getPlayTime() 
+{
     tick = currentTime - startTime;
     return tick;
 }
 
-double Timer::getTick() {
+double Timer::getTick() 
+{
     tick = currentTime - startTime;
     return tick;
 }
 ```
-前者获得int->取整->秒数，后者获得double->精确到秒后的小数点
+前者获得int->取整->秒数，后者获得double->精确到秒后的小数点。
+
 ### 4.3 毒药
 生成过程与上述障碍物生成一致。
 
 ### 4.4 加分路径
 #### Game::judgeDirection
-获得lines最后一条线的方向
+获得lines最后一条线的方向。
 ```
     if(lines.size() <= 1)
         return (std::rand() % 4) +1;
 ```
 size<=1，只有一个点，可以认为是随机方向。
+
 ```
     SnakeBody LastDot = lines.back();
     SnakeBody Last2ndDot = lines.at(lines.size()-2);
@@ -583,6 +694,7 @@ size<=1，只有一个点，可以认为是随机方向。
     if(LastDot.getX() == Last2ndDot.getX() && LastDot.getY() > Last2ndDot.getY())
         return 4;
 ```
+
 ####  Game::createNextLine
 ```
     SnakeBody Dot = lines.back();
@@ -640,12 +752,14 @@ int nDirection = judgeDirection(lines);
 ```
 判断方向后，如果为竖线，增加横向的点（使直线随机左拐/右拐）
 
-横线类似，不再具体说明
+横线类似，不再具体说明。
+
 #### Game::createRandomPassage
 ```
    std::vector<SnakeBody>().swap(this->mPassage);
 ```
-首先把之前的passage清空
+首先把之前的passage清空。
+
 ```
     std::vector<SnakeBody> availableGrid;
     for (int i = 1; i < this->mGameBoardHeight - 1; i ++)
@@ -665,7 +779,8 @@ int nDirection = judgeDirection(lines);
     int random_idx = std::rand() % availableGrid.size();
     this->mPassage.push_back(availableGrid[random_idx]);
 ```
-获得初始点
+获得初始点。
+
 ```
     for (int i=0;i < (std::rand() %4) +1 ; i++)
     {
@@ -674,11 +789,13 @@ int nDirection = judgeDirection(lines);
     }
 ```
 一个循环是进行line的延伸+转折；随机进行x个循环
+
 ```
      if(this->mPassage.size() < 3 )
         std::vector<SnakeBody>().swap(this->mPassage);
 ```
 如果长度太小，判定为这次生成失败，清空passage
+
 #### Game::renderPassage
 ```
     init_color(COLOR_BLUE,3,168,158);
@@ -698,21 +815,25 @@ int nDirection = judgeDirection(lines);
 if(this->mPassage.size()>0)
 ```
 存在passage才会进入后续判定语句
+
 ```
 PassageWalkThrough = this->mPassage;
 ```
 PassageWalkThrough初始化为mPassage，如果蛇走过mPassage其中一格，则PassageWalkThrough去掉这一格，作为记录。
+
 ```
       if(!isPartOfPassage(this->mPtrSnake->getHead()) && PassageWalkThrough.size() != this->mPassage.size())
         {
             PassageWalkThrough = this->mPassage;
         }
 ```
-如果蛇不在Passage上但PassageWalkThrough小于passage->这里可以认为是之前蛇已经走了passage的部分但却在此时离开了passage，所以重置PassageWalkThrough
+如果蛇不在Passage上但PassageWalkThrough小于passage->这里可以认为是之前蛇已经走了passage的部分但却在此时离开了passage，所以重置PassageWalkThrough。
+
 ```
  if(isPartOfPassage(this->mPtrSnake->getHead()))
 ```
 蛇在passage上则进入后续操作
+
 - 后续操作
 ```
        SnakeBody Position = this->mPtrSnake->getHead();
@@ -722,7 +843,8 @@ PassageWalkThrough初始化为mPassage，如果蛇走过mPassage其中一格，�
                 PassageWalkThrough = this->mPassage;
               }
 ```
-如果所处的position并不在PassageWalkThrough—>表示这个地方被蛇重复走过，不符合要求，重置PassageWalkThrough
+如果所处的position并不在PassageWalkThrough—>表示这个地方被蛇重复走过，不符合要求，重置PassageWalkThrough。
+
 ```
             else
                 {
@@ -734,6 +856,7 @@ PassageWalkThrough初始化为mPassage，如果蛇走过mPassage其中一格，�
                 }
 ```
 走过的position在PassageWalkThrough中删除，留作记录。
+
 ```
       if(PassageWalkThrough.size() == 0)
                 {
@@ -747,7 +870,8 @@ PassageWalkThrough初始化为mPassage，如果蛇走过mPassage其中一格，�
                     this->adjustDelay();
                 }
 ```
-当走完通道后->触发音效+额外加分
+当走完通道后->触发音效+额外加分。
+
 #### Game::is_inVector
 ```
     for(SnakeBody position : walkThrough)
@@ -757,7 +881,8 @@ PassageWalkThrough初始化为mPassage，如果蛇走过mPassage其中一格，�
     }
     return false;
 ```
-判断是否在walkThrough里
+判断是否在walkThrough里。
+
 ### 4.5 生命值
 #### Game::RestartGame
 ```
@@ -775,6 +900,7 @@ PassageWalkThrough初始化为mPassage，如果蛇走过mPassage其中一格，�
     this->renderBoards();
 ```
 当蛇的长度<2时，判定为这一轮蛇死亡，生命值-1并初始化该轮游戏。
+
 #### Game::isDie
 ```
     if(this->mSnakeLife == 0)
@@ -790,11 +916,11 @@ PassageWalkThrough初始化为mPassage，如果蛇走过mPassage其中一格，�
 ---
 - 加血道具
 
-获得加血道具必须走完完整的通道->和passage差不多
+获得加血道具必须走完完整的通道，实现过程与passage几乎一致，
 
 **但必须从头进入**
 
-在此只说明如何实现从头进入的判定
+在此只说明如何实现从头进入的判定。
 ```
     if (BloodWalkThrough.size() == 1 && !(Position == this->mBloodPassage.back()))
                 {
@@ -802,6 +928,7 @@ PassageWalkThrough初始化为mPassage，如果蛇走过mPassage其中一格，�
                 }
 ```
 当BloodWalkThrough长度为1时，表示蛇已经走到通道的尾端，为实现从尾端离开，BloodWalkThrough剩余的必须和mBloodPassage的最后一个相等，如果不相等，则没有从头进入->重置BloodWalkThrough
+
 ### 4.6 地图
 #### Game::createMapBoard
 ```
@@ -829,13 +956,14 @@ for(int i=1;i<this->mGameBoardWidth;i++)
     this->createMapBoard();
     std::vector<std::vector<SnakeBody> > AllMap;
 ```
-首先都要进行边界的设置，AllMap储存已经提前设定好的地图
+首先都要进行边界的设置，AllMap储存已经提前设定好的地图。
 ```
     AllMap.push_back(Map3);
     int random_idx = std::rand() % AllMap.size();
     this->mMap.insert(this->mMap.end(),AllMap[random_idx].begin(),AllMap[random_idx].end());
 ```
-随机选择地图
+随机选择地图。
+
 ### 4.7 草
 #### Game::isValidGrass
 ```
@@ -870,11 +998,13 @@ for(int i=1;i<this->mGameBoardWidth;i++)
     }
 ```
 创建随机矩形草地。
+
 #### Game::GrassDelay
 ```
 this->mDelay *= 0.5;
 ```
 进入草地加速。
+
 ### 4.8 音效
 实现音效模块写于Sound.h，Sound.cpp。
 ```
@@ -952,7 +1082,7 @@ mode为1时播放吃食物音效，2为吃毒药，3为通过加分路径，4为
 
 ### 4.9 颜色
 #### Game::renderColorMenu()
-前面和其他Menu一样，不赘述
+前面和其他Menu一样，在此不再赘述
 ```
 std::vector<std::string> menuItems = {" Yellow", " Brown"," Blue", " Quit"};
 ```
@@ -977,13 +1107,13 @@ if (index == 3)//quit
 ```
 根据选择对COLOR_YELLOW进行RGB配色
 
-*整个游戏中只有蛇的颜色用到了COLOR_YELLO，所以不会对其他物品造成影响*
+*整个游戏中只有蛇的颜色用到了COLOR_YELLOW，所以不会对其他物品造成影响*
 
 ### 4.10 分数
 ```
 std::vector<int> mPoints;
 ```
-通过vector来记录每一条生命值所对应的分数
+通过vector来记录每一条生命值所对应的分数。
 
 **每一轮只要调用mPoints.back()就可以获得该生命值的分数**
 
@@ -1001,3 +1131,4 @@ std::vector<int> mPoints;
 实现计算总分。
 
 ## 5. 其它
+### 5.1 内存管理
